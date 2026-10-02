@@ -182,7 +182,7 @@ public class HostService extends Service {
 
     private void stopHost(){
         running=false; closePeer();
-        if(ws!=null){ws.stop();ws=null;} if(http!=null){http.stop();http=null;}
+        if(ws!=null){ws.stop();ws=null;} if(http!=null){http.stopServer();http=null;}
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf();
     }
 
@@ -253,7 +253,7 @@ public class HostService extends Service {
                 out.write(h.getBytes(StandardCharsets.US_ASCII));out.write(b);out.flush();s.close();
             }catch(Exception ignored){}
         }
-        void stop(){alive=false;try{if(server!=null)server.close();}catch(Exception ignored){}}
+        void stopServer(){alive=false;try{if(server!=null)server.close();}catch(Exception ignored){}}
     }
 
     private static abstract class SimpleSdpObserver implements SdpObserver{
