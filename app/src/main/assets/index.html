@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>RC</title></head><body><video id="v" autoplay playsinline style="width:100%;height:100%;object-fit:contain;background:#000"></video><div id="hint">Verbinde mit RC...</div><button onclick="act('back')">Back</button><button onclick="act('home')">Home</button><button onclick="act('recents')">Recent</button><script>
+const v=document.getElementById("v"),hint=document.getElementById("hint");let pc,dc,ws;
+function send(o){if(dc&&dc.readyState==="open")dc.send(JSON.stringify(o))}
+function coords(e){const r=v.getBoundingClientRect();return{x:(e.clientX-r.left)*innerWidth/r.width,y:(e.clientY-r.top)*innerHeight/r.height}}
+async function start(){
+pc=new RTCPeerConnection({iceServers:[]});pc.addTransceiver("video",{direction:"recvonly"});pc.addTransceiver("audio",{direction:"recvonly"});
+pc.ontrack=e=>{v.srcObject=e.streams[0];hint.textContent="Verbunden"};
+ws=new WebSocket("ws://"+location.hostname+":8765");
+ws.onmessage=async e=>{const m=JSON.parse(e.data);if(m.type==="answer")await pc.setRemoteDescription({type:"answer",sdp:m.sdp});else if(m.type==="candidate"){try{await pc.addIceCandidate(m)}catch(_){}}};
+pc.onicecandidate=e=>{if(e.candidate&&ws.readyState===1)ws.send(JSON.stringify({type:"candidate",candidate:e.candidate.candidate,sdpMid:e.candidate.sdpMid,sdpMLineIndex:e.candidate.sdpMLineIndex}))};
+dc=pc.createDataChannel("input");
+try{const mic=await navigator.mediaDevices.getUserMedia({audio:true});mic.getTracks().forEach(t=>pc.addTrack(t,mic))}catch(_){}
+await new Promise(r=>{if(ws.readyState===1)r();else ws.onopen=r});
+const offer=await pc.createOffer();await pc.setLocalDescription(offer);ws.send(JSON.stringify({type:"offer",sdp:offer.sdp}));
+let down=null;v.onpointerdown=e=>{down={...coords(e),t:performance.now()};v.setPointerCapture(e.pointerId)};
+v.onpointerup=e=>{if(!down)return;const p=coords(e),dt=performance.now()-down.t;if(Math.hypot(p.x-down.x,p.y-down.y)<25)send({type:"tap",x:p.x,y:p.y});else send({type:"swipe",x1:down.x,y1:down.y,x2:p.x,y2:p.y,duration:Math.min(800,Math.max(80,dt))});down=null};
+window.addEventListener("keydown",e=>{if(e.key.length===1)send({type:"text",text:e.key});else if(e.key==="Backspace")send({type:"text",text:""})})
+}
+function act(t){send({type:t})}start().catch(e=>hint.textContent="Fehler: "+e.message);
+</script></body></html>

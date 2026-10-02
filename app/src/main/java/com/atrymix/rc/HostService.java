@@ -36,6 +36,8 @@ public class HostService extends Service {
     private VideoSource videoSource;
     private AudioSource audioSource;
     private MediaProjection.Callback projectionCallback;
+    private EglBase eglBase;
+    private SurfaceTextureHelper surfaceTextureHelper;
     private int httpPort=8080, wsPort=8765;
     private int width=1280,height=720,fps=30;
     private String localUrl;
@@ -63,6 +65,7 @@ public class HostService extends Service {
         startForeground(42,notification("RC is running"));
         localUrl="http://"+localIPv4()+":"+httpPort+"/";
         running=true;
+        projectionDataHolder=projectionData;
         try{
             PeerConnectionFactory.initialize(
                 PeerConnectionFactory.InitializationOptions.builder(getApplicationContext()).createInitializationOptions());
@@ -136,10 +139,9 @@ public class HostService extends Service {
         if(sw>sh){width=Math.min(sw,1920);height=Math.min(sh,1080);}else{height=Math.min(sh,1920);width=Math.min(sw,1080);}
         capturer=new ScreenCapturerAndroid(data,new MediaProjection.Callback(){@Override public void onStop(){}});
         videoSource=factory.createVideoSource(true);
-        SurfaceTextureHelper helper=SurfaceTextureHelper.create("RC-Capture",factory.getNativePeerConnectionFactory()!=0?null:null);
-        // Use a normal EGL context-less helper where supported by the bundled WebRTC.
-        // If the platform build rejects this path, the CI log identifies the exact API mismatch.
-        capturer.initialize(helper,this,videoSource.getCapturerObserver());
+        eglBase=EglBase.create();
+        surfaceTextureHelper=SurfaceTextureHelper.create("RC-Capture",eglBase.getEglBaseContext());
+        capturer.initialize(surfaceTextureHelper,this,videoSource.getCapturerObserver());
         capturer.startCapture(width,height,fps);
         VideoTrack track=factory.createVideoTrack("rc-screen",videoSource);
         track.setEnabled(true);
@@ -173,6 +175,8 @@ public class HostService extends Service {
         if(peer!=null){try{peer.close();}catch(Exception ignored){} peer=null;}
         if(capturer!=null){try{capturer.stopCapture();}catch(Exception ignored){} try{capturer.dispose();}catch(Exception ignored){} capturer=null;}
         if(videoSource!=null){videoSource.dispose();videoSource=null;}
+        if(surfaceTextureHelper!=null){surfaceTextureHelper.dispose();surfaceTextureHelper=null;}
+        if(eglBase!=null){eglBase.release();eglBase=null;}
         if(audioSource!=null){audioSource.dispose();audioSource=null;}
     }
 
@@ -243,7 +247,7 @@ public class HostService extends Service {
                 BufferedReader r=new BufferedReader(new InputStreamReader(s.getInputStream()));
                 String line=r.readLine(); if(line==null){s.close();return;}
                 OutputStream out=s.getOutputStream();
-                String body=WEB;
+                String body=loadWeb();
                 byte[] b=body.getBytes(StandardCharsets.UTF_8);
                 String h="HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: "+b.length+"\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n";
                 out.write(h.getBytes(StandardCharsets.US_ASCII));out.write(b);out.flush();s.close();
@@ -259,25 +263,11 @@ public class HostService extends Service {
         public void onSetFailure(String s){}
     }
 
-    private static final String WEB = "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1,viewport-fit=cover'><title>RC</title><style>html,body{margin:0;background:#07090d;color:#f5f7ff;font-family:system-ui;height:100%;overflow:hidden}#v{width:100%;height:100%;object-fit:contain;background:#000;touch-action:none}#bar{position:fixed;top:10px;left:10px;right:10px;display:flex;gap:8px;z-index:3;opacity:.9}button{background:#171c27;color:#fff;border:1px solid #30384b;border-radius:12px;padding:10px 14px}#hint{position:fixed;inset:0;display:grid;place-items:center;color:#9da6bb;pointer-events:none}</style></head><body><video id='v' autoplay playsinline></video><div id='hint'>Verbinde mit RC…</div><div id='bar'><button onclick='act("back")'>‹</button><button onclick='act("home")'>●</button><button onclick='act("recents")'>▣</button></div><script>
-const v=document.getElementById('v'),hint=document.getElementById('hint');let pc,dc,ws,last;
-function send(o){if(dc&&dc.readyState==='open')dc.send(JSON.stringify(o))}
-function coords(e){const r=v.getBoundingClientRect();return{x:(e.clientX-r.left)*innerWidth/r.width,y:(e.clientY-r.top)*innerHeight/r.height}}
-async function start(){
-ws=new WebSocket('ws://'+location.hostname+':8765');
-ws.onmessage=async e=>{const m=JSON.parse(e.data);if(m.type==='answer'){await pc.setRemoteDescription({type:'answer',sdp:m.sdp})}else if(m.type==='candidate'){try{await pc.addIceCandidate(m)}catch(_){}}};
-pc=new RTCPeerConnection({iceServers:[]});
-pc.ontrack=e=>{v.srcObject=e.streams[0];hint.style.display='none'};
-pc.onicecandidate=e=>{if(e.candidate)ws.send(JSON.stringify({type:'candidate',candidate:e.candidate.candidate,sdpMid:e.candidate.sdpMid,sdpMLineIndex:e.candidate.sdpMLineIndex}))};
-dc=pc.createDataChannel('input');dc.onopen=()=>hint.textContent='Verbunden';dc.onclose=()=>hint.textContent='Getrennt';
-pc.addTransceiver('video',{direction:'recvonly'});pc.addTransceiver('audio',{direction:'recvonly'});
-try{const mic=await navigator.mediaDevices.getUserMedia({audio:true});mic.getTracks().forEach(t=>pc.addTrack(t,mic))}catch(_){}
-const offer=await pc.createOffer();await pc.setLocalDescription(offer);ws.onopen=()=>ws.send(JSON.stringify({type:'offer',sdp:offer.sdp}));
-let down=null;v.onpointerdown=e=>{down={...coords(e),t:performance.now()};v.setPointerCapture(e.pointerId)};
-v.onpointerup=e=>{if(!down)return;const p=coords(e),dt=performance.now()-down.t;const dx=p.x-down.x,dy=p.y-down.y;if(Math.hypot(dx,dy)<25)send({type:'tap',x:p.x,y:p.y});else send({type:'swipe',x1:down.x,y1:down.y,x2:p.x,y2:p.y,duration:Math.min(800,Math.max(80,dt))});down=null};
-v.ondblclick=e=>send({type:'tap',...coords(e)});
-window.addEventListener('keydown',e=>{if(e.key.length===1)send({type:'text',text:e.key});else if(e.key==='Backspace')send({type:'text',text:''})});
-}
-function act(t){send({type:t})} start().catch(e=>hint.textContent='Fehler: '+e.message);
-</script></body></html>";
+    private String loadWeb(){
+        try(InputStream in=getAssets().open("index.html"); ByteArrayOutputStream out=new ByteArrayOutputStream()){
+            byte[] buf=new byte[8192]; int n; while((n=in.read(buf))!=-1) out.write(buf,0,n);
+            return out.toString(StandardCharsets.UTF_8.name());
+        }catch(Exception e){ return "<!doctype html><html><body>RC web client unavailable</body></html>"; }
+    }
+
 }
