@@ -1,0 +1,29 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.atrymix.rc'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.atrymix.rc'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'com.google.android.material:material:1.12.0'
+    implementation 'org.java-websocket:Java-WebSocket:1.5.7'
+    implementation 'io.github.webrtc-sdk:android:150.7871.01'
+    implementation 'com.google.zxing:core:3.5.3'
+}

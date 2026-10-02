@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="#0B0D12">
+    <LinearLayout
+        android:orientation="vertical" android:padding="24dp"
+        android:layout_width="match_parent" android:layout_height="wrap_content">
+        <TextView android:text="RC" android:textColor="#F4F6FF" android:textSize="42sp" android:textStyle="bold"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+        <TextView android:text="Remote Control" android:textColor="#9CA4B8" android:textSize="18sp"
+            android:layout_marginBottom="24dp" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+
+        <TextView android:id="@+id/status" android:text="SERVER AUS" android:textColor="#F4F6FF" android:textSize="18sp"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+        <TextView android:id="@+id/url" android:text="Noch keine lokale Adresse" android:textColor="#9CA4B8" android:textSize="15sp"
+            android:layout_marginTop="8dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+        <Button android:id="@+id/start" android:text="SERVER STARTEN" android:textAllCaps="false"
+            android:layout_marginTop="20dp" android:layout_width="match_parent" android:layout_height="56dp"/>
+        <Button android:id="@+id/accessibility" android:text="Fernsteuerung aktivieren" android:textAllCaps="false"
+            android:layout_marginTop="10dp" android:layout_width="match_parent" android:layout_height="52dp"/>
+
+        <ImageView android:id="@+id/qr" android:contentDescription="QR-Code"
+            android:layout_gravity="center_horizontal" android:layout_marginTop="22dp"
+            android:background="#FFFFFF" android:padding="12dp"
+            android:layout_width="230dp" android:layout_height="230dp"/>
+
+        <TextView android:text="iPad: QR-Code scannen oder die Adresse in Safari öffnen. Beide Geräte müssen im selben lokalen WLAN sein."
+            android:textColor="#777F94" android:textSize="14sp" android:layout_marginTop="18dp"
+            android:layout_width="match_parent" android:layout_height="wrap_content"/>
+    </LinearLayout>
+</ScrollView>

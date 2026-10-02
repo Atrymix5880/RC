@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RC – Remote Control</string>
+    <string name="accessibility_description">RC uses accessibility controls to relay touch gestures and system actions from the connected iPad.</string>
+</resources>
