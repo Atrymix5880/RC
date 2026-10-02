@@ -182,7 +182,7 @@ public class HostService extends Service {
 
     private void stopHost(){
         running=false; closePeer();
-        if(ws!=null){ws.stop();ws=null;} if(http!=null){http.stopServer();http=null;}
+        if(ws!=null){try{ws.stop();}catch(InterruptedException e){Thread.currentThread().interrupt();} ws=null;} if(http!=null){http.stopServer();http=null;}
         stopForeground(STOP_FOREGROUND_REMOVE); stopSelf();
     }
 
